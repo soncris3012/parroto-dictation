@@ -15,7 +15,8 @@ export default function SpeakingExaminerRoom({ onFinish }) {
 
   useEffect(() => {
     // 1. Initialize WebSocket
-    const socket = new WebSocket("ws://127.0.0.1:5001/ws/speaking");
+    const wsUrl = import.meta.env.VITE_WS_URL ? `${import.meta.env.VITE_WS_URL}/ws/speaking` : "ws://127.0.0.1:5001/ws/speaking";
+    const socket = new WebSocket(wsUrl);
     socket.onopen = () => {
       setConnected(true);
       socket.send(JSON.stringify({ type: "init" }));
