@@ -18,4 +18,14 @@ pool.query('SELECT NOW()', (err, res) => {
   }
 });
 
+// Override pool.query to convert SQLite `?` to Postgres `$1, $2...`
+const originalQuery = pool.query.bind(pool);
+pool.query = async (text, params) => {
+  if (typeof text === 'string' && params && Array.isArray(params)) {
+    let i = 1;
+    text = text.replace(/\?/g, () => `$${i++}`);
+  }
+  return originalQuery(text, params);
+};
+
 export default pool;

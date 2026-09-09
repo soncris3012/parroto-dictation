@@ -456,9 +456,9 @@ app.put("/api/notes/:id", async (req, res) => {
     tag || note.tag,
     ipa !== undefined ? ipa : note.ipa,
     example !== undefined ? example : note.example,
-    is_pinned !== undefined ? (is_pinned ? 1 : 0]) : note.is_pinned,
+    is_pinned !== undefined ? (is_pinned ? 1 : 0) : note.is_pinned,
     noteId
-  );
+  ]);
 
   const updated = (await pool.query("SELECT * FROM notes WHERE id = ?", [noteId])).rows[0];
   res.json(updated);
