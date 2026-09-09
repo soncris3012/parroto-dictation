@@ -311,7 +311,7 @@ export default function Header({ theme, setTheme, onOpenDictionary, toggleSideba
                 }}
               />
               <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--foreground)", maxWidth: "90px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {currentUser.full_name.split(" ").slice(-1)[0]}
+                {currentUser?.full_name?.split(" ").slice(-1)[0] || "User"}
               </span>
               <ChevronDown size={14} color="var(--muted-foreground)" />
             </div>
@@ -337,12 +337,12 @@ export default function Header({ theme, setTheme, onOpenDictionary, toggleSideba
               >
                 {/* User info */}
                 <div style={{ borderBottom: "1px solid #1e3154", paddingBottom: "10px" }}>
-                  <p style={{ fontSize: "14px", fontWeight: 800, color: "#f8fafc" }}>
-                    {currentUser.full_name}
-                  </p>
-                  <p style={{ fontSize: "12px", color: "#94a3b8", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {currentUser.email}
-                  </p>
+                  <div style={{ fontSize: "15px", fontWeight: 700, color: "var(--foreground)" }}>
+                    {currentUser?.full_name || "Người dùng"}
+                  </div>
+                  <div style={{ fontSize: "13px", color: "var(--muted-foreground)" }}>
+                    {currentUser?.email || ""}
+                  </div>
                   <div style={{ display: "flex", gap: "6px", marginTop: "8px" }}>
                     {isPro && (
                       <span style={{ backgroundColor: "#f59e0b", color: "#000", fontSize: "10px", fontWeight: 800, padding: "2px 6px", borderRadius: "4px" }}>
