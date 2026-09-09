@@ -661,13 +661,49 @@ app.post("/api/admin/users/create", async (req, res) => {
     VALUES (?, '123456', ?, ?, ?, ?, ?, 1, 100)
   `, [email, full_name, avatar, provider || "email", role || "user", is_pro ? 1 : 0]);
 
-  res.json({ success: true, message: `Đã tạo tài khoản "${full_name}" thành công vào SQLite!` });
+  res.json({ success: true, message: `Đã tạo tài khoản "${full_name}" thành công!` });
 });
 
 // Get system reports & feedback
 app.get("/api/admin/reports", async (req, res) => {
   const reports = (await pool.query("SELECT * FROM system_reports ORDER BY created_at DESC", [])).rows;
   res.json(reports);
+});
+
+// Health check & DB schema check endpoint
+app.get("/api/health", async (req, res) => {
+  try {
+    const timeRes = await pool.query("SELECT NOW() as now");
+    const tablesRes = await pool.query(`
+      SELECT table_name 
+      FROM information_schema.tables 
+      WHERE table_schema = 'public'
+    `);
+    const usersColsRes = await pool.query(`
+      SELECT column_name, data_type 
+      FROM information_schema.columns 
+      WHERE table_name = 'users'
+    `);
+    res.json({
+      status: "ok",
+      now: timeRes.rows[0].now,
+      tables: tablesRes.rows.map(r => r.table_name),
+      user_columns: usersColsRes.rows.map(r => `${r.column_name} (${r.data_type})`)
+    });
+  } catch (err) {
+    res.status(500).json({ status: "error", message: err.message, stack: err.stack });
+  }
+});
+
+// Global Error-Handling Middleware (Returns JSON instead of HTML 500)
+app.use((err, req, res, next) => {
+  console.error("[EXPRESS UNCAUGHT ERROR]:", err);
+  res.status(500).json({
+    error: err.message || "Internal Server Error",
+    code: err.code,
+    detail: err.detail,
+    stack: process.env.NODE_ENV === "production" ? undefined : err.stack
+  });
 });
 
 // ==========================================
