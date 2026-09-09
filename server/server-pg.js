@@ -115,12 +115,12 @@ app.post("/api/auth/register", async (req, res) => {
   }
 
   const avatar = `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(full_name)}`;
-  const result = db.prepare(`
+  const result = await pool.query(`
     INSERT INTO users (email, password_hash, full_name, avatar, provider, role, is_pro, streak, diamonds)
     VALUES (?, ?, ?, ?, 'email', 'user', 0, 1, 100)
-  `).run(email, password || "123456", full_name, avatar);
+  `, [email, password || "123456", full_name, avatar]);
 
-  const newUser = (await pool.query("SELECT * FROM users WHERE id = ?", [result.lastInsertRowid])).rows[0];
+  const newUser = (await pool.query("SELECT * FROM users WHERE id = ?", [result.rows[0].id])).rows[0];
   const { password_hash, ...safeUser } = newUser;
 
   res.status(201).json({
@@ -153,21 +153,22 @@ app.post("/api/auth/google/verify", async (req, res) => {
     let user = (await pool.query("SELECT * FROM users WHERE email = ?", [email])).rows[0];
     if (!user) {
       const avatar = picture || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(name || email)}`;
-      const result = db.prepare(`
+      const result = await pool.query(`
         INSERT INTO users (email, full_name, avatar, provider, role, is_pro, streak, diamonds)
         VALUES (?, ?, ?, 'google', 'user', 0, 1, 150)
-      `).run(email, name || email.split("@")[0], avatar);
+        RETURNING id
+      `, [email, name || email.split("@")[0], avatar]);
 
-      user = (await pool.query("SELECT * FROM users WHERE id = ?", [result.lastInsertRowid])).rows[0];
+      user = (await pool.query("SELECT * FROM users WHERE id = ?", [result.rows[0].id])).rows[0];
     } else {
       await pool.query("UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?", [user.id]);
     }
 
     // Log activity
-    db.prepare(`
+    await pool.query(`
       INSERT INTO user_activity (user_id, activity_type, details, xp_earned)
       VALUES (?, 'auth', 'Đăng nhập thành công qua Google OAuth thật', 10)
-    `).run(user.id);
+    `, [user.id]);
 
     const { password_hash, ...safeUser } = user;
     res.json({
@@ -196,21 +197,21 @@ app.post("/api/auth/oauth", async (req, res) => {
 
   let user = (await pool.query("SELECT * FROM users WHERE email = ?", [targetEmail])).rows[0];
   if (!user) {
-    const result = db.prepare(`
+    const result = await pool.query(`
       INSERT INTO users (email, full_name, avatar, provider, role, is_pro, streak, diamonds)
       VALUES (?, ?, ?, ?, 'user', 0, 1, 150)
-    `).run(targetEmail, targetName, targetAvatar, provider);
+    `, [targetEmail, targetName, targetAvatar, provider]);
 
-    user = (await pool.query("SELECT * FROM users WHERE id = ?", [result.lastInsertRowid])).rows[0];
+    user = (await pool.query("SELECT * FROM users WHERE id = ?", [result.rows[0].id])).rows[0];
   } else {
     await pool.query("UPDATE users SET last_login = CURRENT_TIMESTAMP, provider = ? WHERE id = ?", [provider, user.id]);
   }
 
   // Log activity
-  db.prepare(`
+  await pool.query(`
     INSERT INTO user_activity (user_id, activity_type, details, xp_earned)
     VALUES (?, 'auth', ?, 10)
-  `).run(user.id, `Đăng nhập qua ${provider.toUpperCase()}`);
+  `, [user.id, `Đăng nhập qua ${provider.toUpperCase()}`]);
 
   const { password_hash, ...safeUser } = user;
   res.json({
@@ -268,9 +269,9 @@ app.get("/api/user/dashboard", async (req, res) => {
 
   if (!user) return res.status(404).json({ error: "User not found" });
 
-  const totalNotes = db.prepare("SELECT COUNT(*) as count FROM notes WHERE user_id = ?").get(userId).count;
-  const totalExams = db.prepare("SELECT COUNT(*) as count FROM exam_results WHERE user_id = ?").get(userId).count;
-  const totalSeconds = db.prepare("SELECT COALESCE(SUM(time_spent_seconds), 0) as total FROM exam_results WHERE user_id = ?").get(userId).total;
+  const totalNotes = Number((await pool.query("SELECT COUNT(*) as count FROM notes WHERE user_id = ?", [userId])).rows[0].count);
+  const totalExams = Number((await pool.query("SELECT COUNT(*) as count FROM exam_results WHERE user_id = ?", [userId])).rows[0].count);
+  const totalSeconds = Number((await pool.query("SELECT COALESCE(SUM(time_spent_seconds), 0) as total FROM exam_results WHERE user_id = ?", [userId])).rows[0].total);
   
   const recentExams = (await pool.query(`
     SELECT id, exam_type, exam_id, exam_title, score, total_questions, band_score, time_spent_seconds, created_at
@@ -355,10 +356,10 @@ app.post("/api/shop/purchase", async (req, res) => {
   const isPro = item_id === "pro_3d" ? 1 : user.is_pro;
 
   await pool.query("UPDATE users SET diamonds = ?, is_pro = ? WHERE id = ?", [newDiamonds, isPro, user_id]);
-  db.prepare(`
+  await pool.query(`
     INSERT INTO user_activity (user_id, activity_type, details, xp_earned)
     VALUES (?, 'shop', ?, 0)
-  `).run(user_id, `Đổi thành công vật phẩm: ${item_name}`);
+  `, [user_id, `Đổi thành công vật phẩm: ${item_name}`]);
 
   const updated = (await pool.query("SELECT * FROM users WHERE id = ?", [user_id])).rows[0];
   const { password_hash, ...safeUser } = updated;
@@ -377,10 +378,10 @@ app.post("/api/milestones/claim", async (req, res) => {
 
   const newDiamonds = (user.diamonds || 0) + reward_diamonds;
   await pool.query("UPDATE users SET diamonds = ? WHERE id = ?", [newDiamonds, user_id]);
-  db.prepare(`
+  await pool.query(`
     INSERT INTO user_activity (user_id, activity_type, details, xp_earned)
     VALUES (?, 'reward', ?, 25)
-  `).run(user_id, `Nhận thưởng: ${title} (+${reward_diamonds} 💎)`);
+  `, [user_id, `Nhận thưởng: ${title} (+${reward_diamonds} 💎)`]);
 
   const updated = (await pool.query("SELECT * FROM users WHERE id = ?", [user_id])).rows[0];
   const { password_hash, ...safeUser } = updated;
@@ -429,12 +430,13 @@ app.post("/api/notes", async (req, res) => {
     return res.status(400).json({ error: "Tiêu đề và nội dung là bắt buộc" });
   }
 
-  const result = db.prepare(`
+  const result = await pool.query(`
     INSERT INTO notes (user_id, title, content, tag, ipa, example, audio_text, is_pinned)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(user_id, title, content, tag, ipa || "", example || "", audio_text || title, is_pinned ? 1 : 0);
+    RETURNING id
+  `, [user_id, title, content, tag, ipa || "", example || "", audio_text || title, is_pinned ? 1 : 0]);
 
-  const created = (await pool.query("SELECT * FROM notes WHERE id = ?", [result.lastInsertRowid])).rows[0];
+  const created = (await pool.query("SELECT * FROM notes WHERE id = ?", [result.rows[0].id])).rows[0];
   res.status(201).json(created);
 });
 
@@ -498,20 +500,21 @@ app.post("/api/exams/submit", async (req, res) => {
     answers_json = "{}"
   } = req.body;
 
-  const result = db.prepare(`
+  const result = await pool.query(`
     INSERT INTO exam_results (user_id, exam_type, exam_id, exam_title, score, total_questions, band_score, time_spent_seconds, answers_json)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(user_id, exam_type, exam_id, exam_title, score, total_questions, band_score, time_spent_seconds, JSON.stringify(answers_json));
+    RETURNING id
+  `, [user_id, exam_type, exam_id, exam_title, score, total_questions, band_score, time_spent_seconds, JSON.stringify(answers_json)]);
 
   // Log user activity
-  db.prepare(`
+  await pool.query(`
     INSERT INTO user_activity (user_id, activity_type, details, xp_earned)
     VALUES (?, 'exam', ?, 50)
-  `).run(user_id, `Hoàn thành bài thi ${exam_title} với kết quả: ${band_score}`);
+  `, [user_id, `Hoàn thành bài thi ${exam_title} với kết quả: ${band_score}`]);
 
   res.status(201).json({
     success: true,
-    result_id: result.lastInsertRowid,
+    result_id: result.rows[0].id,
     message: "Lưu kết quả bài thi thành công!"
   });
 });
@@ -522,11 +525,11 @@ app.post("/api/exams/submit", async (req, res) => {
 
 // Overview KPI Statistics - 100% Genuine SQLite Database Queries
 app.get("/api/admin/stats", async (req, res) => {
-  const totalUsers = db.prepare("SELECT COUNT(*) as count FROM users").get().count;
-  const proUsers = db.prepare("SELECT COUNT(*) as count FROM users WHERE is_pro = 1").get().count;
-  const totalNotes = db.prepare("SELECT COUNT(*) as count FROM notes").get().count;
-  const totalExams = db.prepare("SELECT COUNT(*) as count FROM exam_results").get().count;
-  const totalSecs = db.prepare("SELECT COALESCE(SUM(time_spent_seconds), 0) as total FROM exam_results").get().total;
+  const totalUsers = Number((await pool.query("SELECT COUNT(*) as count FROM users")).rows[0].count);
+  const proUsers = Number((await pool.query("SELECT COUNT(*) as count FROM users WHERE is_pro = 1")).rows[0].count);
+  const totalNotes = Number((await pool.query("SELECT COUNT(*) as count FROM notes")).rows[0].count);
+  const totalExams = Number((await pool.query("SELECT COUNT(*) as count FROM exam_results")).rows[0].count);
+  const totalSecs = Number((await pool.query("SELECT COALESCE(SUM(time_spent_seconds), 0) as total FROM exam_results")).rows[0].total);
   const totalHoursStudied = Math.round(totalSecs / 3600);
 
   // Exact revenue computed from real active PRO subscribers in database (599,000 VND/pro)
@@ -542,7 +545,7 @@ app.get("/api/admin/stats", async (req, res) => {
   `, [])).rows;
 
   // Monthly stats computed directly from SQLite group by created_at month
-  const monthlyRows = db.prepare(`
+  const monthlyRows = (await pool.query(`
     SELECT 
       strftime('%m', created_at) as month_num,
       COUNT(*) as learners,
@@ -550,7 +553,7 @@ app.get("/api/admin/stats", async (req, res) => {
     FROM users
     GROUP BY strftime('%m', created_at)
     ORDER BY month_num ASC
-  `).all();
+  `)).rows;
 
   const monthlyData = monthlyRows.map((r) => ({
     month: `Tháng ${parseInt(r.month_num, 10)}`,
@@ -651,10 +654,10 @@ app.post("/api/admin/users/create", async (req, res) => {
     return res.status(409).json({ error: "Email này đã tồn tại trong hệ thống!" });
   }
   const avatar = `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(full_name)}`;
-  db.prepare(`
+  await pool.query(`
     INSERT INTO users (email, password_hash, full_name, avatar, provider, role, is_pro, streak, diamonds)
     VALUES (?, '123456', ?, ?, ?, ?, ?, 1, 100)
-  `).run(email, full_name, avatar, provider || "email", role || "user", is_pro ? 1 : 0);
+  `, [email, full_name, avatar, provider || "email", role || "user", is_pro ? 1 : 0]);
 
   res.json({ success: true, message: `Đã tạo tài khoản "${full_name}" thành công vào SQLite!` });
 });
