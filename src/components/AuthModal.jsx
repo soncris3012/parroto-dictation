@@ -35,6 +35,7 @@ export default function AuthModal({ isOpen, onClose }) {
 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
 
   // Fetch real users from SQLite Database on modal open
   useEffect(() => {
@@ -121,8 +122,6 @@ export default function AuthModal({ isOpen, onClose }) {
     }, 2500);
   };
   
-  const [toastMessage, setToastMessage] = useState("");
-
   // Confirm OAuth Login with real user data
   const handleConfirmOAuth = async (e) => {
     e.preventDefault();

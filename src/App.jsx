@@ -240,7 +240,6 @@ function MainContent() {
               Đăng Nhập / Đăng Ký
             </button>
           </div>
-          <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
         </div>
       )}
 
@@ -477,12 +476,6 @@ function MainContent() {
           onClose={() => setIsPremiumModalOpen(false)}
         />
 
-        {/* Account Login / Register Auth Modal */}
-        <AuthModal
-          isOpen={isAuthModalOpen}
-          onClose={() => setIsAuthModalOpen(false)}
-        />
-
         {/* Pro YouTube Importer Modal */}
         <YouTubeImportModal
           isOpen={isYtModalOpen}
@@ -502,6 +495,12 @@ function MainContent() {
           totalSentences={sentences.length}
         />
       </>}
+
+      {/* Account Login / Register Auth Modal - Rendered unconditionally */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+      />
     </div>
   );
 }
