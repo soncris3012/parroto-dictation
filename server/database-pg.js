@@ -8,9 +8,32 @@ if (dns.setDefaultResultOrder) {
 
 const { Pool } = pg;
 
+let connectionString = process.env.DATABASE_URL;
+
+// Automatic IPv4 translation for Render (Render lacks IPv6 outbound)
+if (connectionString && connectionString.includes('.supabase.co')) {
+  try {
+    const parsed = new URL(connectionString);
+    const match = parsed.hostname.match(/^db\.([a-z0-9]+)\.supabase\.co$/);
+    if (match) {
+      const projectRef = match[1];
+      const origUser = decodeURIComponent(parsed.username || 'postgres');
+      if (!origUser.includes('.')) {
+        parsed.username = `${origUser}.${projectRef}`;
+      }
+      parsed.hostname = 'aws-0-ap-southeast-1.pooler.supabase.com';
+      parsed.port = '5432';
+      connectionString = parsed.toString();
+      console.log('[PG INFO] Auto-converted Supabase URL to IPv4 Pooler:', parsed.hostname);
+    }
+  } catch (e) {
+    console.error('[PG ERROR] Failed to parse DATABASE_URL:', e);
+  }
+}
+
 // Kết nối đến Supabase PostgreSQL
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString,
   ssl: {
     rejectUnauthorized: false
   }
