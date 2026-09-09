@@ -118,6 +118,7 @@ app.post("/api/auth/register", async (req, res) => {
   const result = await pool.query(`
     INSERT INTO users (email, password_hash, full_name, avatar, provider, role, is_pro, streak, diamonds)
     VALUES (?, ?, ?, ?, 'email', 'user', 0, 1, 100)
+    RETURNING id
   `, [email, password || "123456", full_name, avatar]);
 
   const newUser = (await pool.query("SELECT * FROM users WHERE id = ?", [result.rows[0].id])).rows[0];
@@ -200,6 +201,7 @@ app.post("/api/auth/oauth", async (req, res) => {
     const result = await pool.query(`
       INSERT INTO users (email, full_name, avatar, provider, role, is_pro, streak, diamonds)
       VALUES (?, ?, ?, ?, 'user', 0, 1, 150)
+      RETURNING id
     `, [targetEmail, targetName, targetAvatar, provider]);
 
     user = (await pool.query("SELECT * FROM users WHERE id = ?", [result.rows[0].id])).rows[0];

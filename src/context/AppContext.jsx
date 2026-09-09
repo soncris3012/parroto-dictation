@@ -21,9 +21,15 @@ export function AppProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(() => {
     try {
       const saved = localStorage.getItem("parroto_user");
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Chỉ dùng user đã lưu nếu có id hợp lệ và không phải admin mặc định
+        if (parsed?.id && parsed?.email && parsed.email !== "admin@parroto.app") {
+          return parsed;
+        }
+      }
     } catch (e) {}
-    return DEFAULT_ADMIN_USER;
+    return null;
   });
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -53,7 +59,7 @@ export function AppProvider({ children }) {
       const saved = localStorage.getItem("parroto_user");
       if (saved) {
         const u = JSON.parse(saved);
-        if (u?.id) {
+        if (u?.id && u?.email && u.email !== "admin@parroto.app") {
           fetch(`/api/auth/me?user_id=${u.id}`)
             .then((r) => (r.ok ? r.json() : null))
             .then((data) => {
@@ -166,7 +172,10 @@ export function AppProvider({ children }) {
     setCurrentUser(null);
     localStorage.removeItem("parroto_user");
     localStorage.removeItem("parroto_token");
+    localStorage.removeItem("sorata_last_route");
     sounds.playWrong();
+    // Không redirect về dashboard, mở modal đăng nhập
+    setIsAuthModalOpen(true);
   };
 
   // Update user profile or VIP in SQLite DB

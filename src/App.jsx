@@ -213,8 +213,39 @@ function MainContent() {
         toggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
       />
 
-      {/* Main Body */}
-      <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
+      {/* Guard: nếu chưa đăng nhập thì show màn hình landing đẹp */}
+      {!currentUser && (
+        <div style={{
+          flex: 1, display: "flex", flexDirection: "column", alignItems: "center",
+          justifyContent: "center", backgroundColor: "var(--background)", gap: "24px",
+          padding: "40px 20px"
+        }}>
+          <div style={{ textAlign: "center", maxWidth: "480px" }}>
+            <div style={{ fontSize: "64px", marginBottom: "16px" }}>🦜</div>
+            <h1 style={{ fontSize: "32px", fontWeight: 800, color: "var(--foreground)", marginBottom: "8px" }}>
+              Chào mừng đến Sorata!
+            </h1>
+            <p style={{ color: "var(--muted-foreground)", fontSize: "16px", marginBottom: "32px", lineHeight: 1.6 }}>
+              Nền tảng luyện tiếng Anh thông minh với AI. Đăng nhập để bắt đầu hành trình chinh phục IELTS & TOEIC của bạn.
+            </p>
+            <button
+              onClick={() => setIsAuthModalOpen(true)}
+              style={{
+                padding: "14px 40px", borderRadius: "12px", border: "none", cursor: "pointer",
+                background: "linear-gradient(135deg, #22c55e, #16a34a)",
+                color: "#fff", fontSize: "16px", fontWeight: 700,
+                boxShadow: "0 4px 20px rgba(34,197,94,0.4)",
+              }}
+            >
+              Đăng Nhập / Đăng Ký
+            </button>
+          </div>
+          <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
+        </div>
+      )}
+
+      {/* Main Body - chỉ render khi đã đăng nhập */}
+      {currentUser && <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
         {/* Left Sidebar */}
         <Sidebar collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} />
 
@@ -420,54 +451,57 @@ function MainContent() {
             </div>
           )}
         </main>
-      </div>
+      </div>}
 
-      {/* Floating Word Lookup Popover */}
-      {popoverState && (
-        <WordLookupPopover
-          word={popoverState.word}
-          position={popoverState.position}
-          onClose={() => setPopoverState(null)}
-          onSaveWord={handleSaveWordToNotes}
+      {/* Modals chỉ render khi đã đăng nhập */}
+      {currentUser && <>
+        {/* Floating Word Lookup Popover */}
+        {popoverState && (
+          <WordLookupPopover
+            word={popoverState.word}
+            position={popoverState.position}
+            onClose={() => setPopoverState(null)}
+            onSaveWord={handleSaveWordToNotes}
+          />
+        )}
+
+        {/* Dictionary Search Modal */}
+        <DictionarySearchModal
+          isOpen={isDictModalOpen}
+          onClose={() => setIsDictModalOpen(false)}
         />
-      )}
 
-      {/* Dictionary Search Modal */}
-      <DictionarySearchModal
-        isOpen={isDictModalOpen}
-        onClose={() => setIsDictModalOpen(false)}
-      />
+        {/* Sorata Premium Pro Modal */}
+        <PremiumModal
+          isOpen={isPremiumModalOpen}
+          onClose={() => setIsPremiumModalOpen(false)}
+        />
 
-      {/* Sorata Premium Pro Modal */}
-      <PremiumModal
-        isOpen={isPremiumModalOpen}
-        onClose={() => setIsPremiumModalOpen(false)}
-      />
+        {/* Account Login / Register Auth Modal */}
+        <AuthModal
+          isOpen={isAuthModalOpen}
+          onClose={() => setIsAuthModalOpen(false)}
+        />
 
-      {/* Account Login / Register Auth Modal */}
-      <AuthModal
-        isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
-      />
+        {/* Pro YouTube Importer Modal */}
+        <YouTubeImportModal
+          isOpen={isYtModalOpen}
+          onClose={() => setIsYtModalOpen(false)}
+          onImportSuccess={handleImportYouTubeSuccess}
+        />
 
-      {/* Pro YouTube Importer Modal */}
-      <YouTubeImportModal
-        isOpen={isYtModalOpen}
-        onClose={() => setIsYtModalOpen(false)}
-        onImportSuccess={handleImportYouTubeSuccess}
-      />
-
-      {/* Lesson Complete Celebration Modal */}
-      <LessonCompleteModal
-        isOpen={isCompleteModalOpen}
-        onClose={() => setIsCompleteModalOpen(false)}
-        onRestart={() => {
-          setIsCompleteModalOpen(false);
-          setCompletedIndices(new Set());
-          goToSentence(0);
-        }}
-        totalSentences={sentences.length}
-      />
+        {/* Lesson Complete Celebration Modal */}
+        <LessonCompleteModal
+          isOpen={isCompleteModalOpen}
+          onClose={() => setIsCompleteModalOpen(false)}
+          onRestart={() => {
+            setIsCompleteModalOpen(false);
+            setCompletedIndices(new Set());
+            goToSentence(0);
+          }}
+          totalSentences={sentences.length}
+        />
+      </>}
     </div>
   );
 }
