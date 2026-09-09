@@ -5,7 +5,7 @@ import pool from "./database-pg.js";
 import { WebSocketServer } from "ws";
 
 const app = express();
-const PORT = 5001;
+const PORT = process.env.PORT || 5001;
 
 app.use(cors());
 app.use(express.json());
@@ -668,7 +668,7 @@ app.get("/api/admin/reports", async (req, res) => {
 // ==========================================
 // START SERVER
 // ==========================================
-const httpServer = app.listen(PORT, "127.0.0.1", () => {
+const httpServer = app.listen(PORT, "0.0.0.0", () => {
   console.log(`[Sorata Server] Backend REST API running at http://127.0.0.1:${PORT}`);
   console.log(`[Sorata Server] SQLite Database active at database/parroto.db`);
   console.log(`[Sorata Server] Google TTS Proxy active at http://127.0.0.1:${PORT}/api/tts`);
