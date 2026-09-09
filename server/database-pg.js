@@ -21,10 +21,10 @@ if (connectionString && connectionString.includes('.supabase.co')) {
       if (!origUser.includes('.')) {
         parsed.username = `${origUser}.${projectRef}`;
       }
-      parsed.hostname = 'aws-0-ap-southeast-1.pooler.supabase.com';
-      parsed.port = '5432';
+      parsed.hostname = 'aws-0-ap-northeast-2.pooler.supabase.com';
+      parsed.port = '6543';
       connectionString = parsed.toString();
-      console.log('[PG INFO] Auto-converted Supabase URL to IPv4 Pooler:', parsed.hostname);
+      console.log('[PG INFO] Auto-converted Supabase URL to IPv4 Pooler:', parsed.hostname, parsed.port);
     }
   } catch (e) {
     console.error('[PG ERROR] Failed to parse DATABASE_URL:', e);
