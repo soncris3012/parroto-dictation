@@ -672,6 +672,14 @@ app.get("/api/admin/reports", async (req, res) => {
 
 // Health check & DB schema check endpoint
 app.get("/api/health", async (req, res) => {
+  let dbHost = "unknown";
+  try {
+    if (process.env.DATABASE_URL) {
+      const u = new URL(process.env.DATABASE_URL);
+      dbHost = `${u.hostname}:${u.port}`;
+    }
+  } catch (e) {}
+
   try {
     const timeRes = await pool.query("SELECT NOW() as now");
     const tablesRes = await pool.query(`
@@ -686,12 +694,13 @@ app.get("/api/health", async (req, res) => {
     `);
     res.json({
       status: "ok",
+      db_host: dbHost,
       now: timeRes.rows[0].now,
       tables: tablesRes.rows.map(r => r.table_name),
       user_columns: usersColsRes.rows.map(r => `${r.column_name} (${r.data_type})`)
     });
   } catch (err) {
-    res.status(500).json({ status: "error", message: err.message, stack: err.stack });
+    res.status(500).json({ status: "error", db_host: dbHost, message: err.message, stack: err.stack });
   }
 });
 

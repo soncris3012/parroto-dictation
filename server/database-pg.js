@@ -1,4 +1,11 @@
 import pg from 'pg';
+import dns from 'node:dns';
+
+// Render doesn't support IPv6 outbound. Force Node to prefer IPv4.
+if (dns.setDefaultResultOrder) {
+  dns.setDefaultResultOrder('ipv4first');
+}
+
 const { Pool } = pg;
 
 // Kết nối đến Supabase PostgreSQL
