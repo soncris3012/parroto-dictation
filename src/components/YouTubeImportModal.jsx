@@ -31,8 +31,6 @@ export default function YouTubeImportModal({ isOpen, onClose, onImportSuccess })
   const [previewMeta, setPreviewMeta] = useState(null);
   const [error, setError] = useState("");
 
-  if (!isOpen) return null;
-
   // Extract video ID helper
   const getVideoId = (str) => {
     if (!str) return null;
@@ -42,6 +40,10 @@ export default function YouTubeImportModal({ isOpen, onClose, onImportSuccess })
 
   // Preview video metadata on URL change
   useEffect(() => {
+    if (!isOpen) {
+      setPreviewMeta(null);
+      return;
+    }
     const videoId = getVideoId(url);
     if (!videoId) {
       setPreviewMeta(null);
@@ -67,7 +69,7 @@ export default function YouTubeImportModal({ isOpen, onClose, onImportSuccess })
     return () => {
       isSubscribed = false;
     };
-  }, [url]);
+  }, [url, isOpen]);
 
   const handleImport = async (e) => {
     if (e) e.preventDefault();
@@ -145,6 +147,8 @@ export default function YouTubeImportModal({ isOpen, onClose, onImportSuccess })
     setUrl(sampleUrl);
     setError("");
   };
+
+  if (!isOpen) return null;
 
   return (
     <div
