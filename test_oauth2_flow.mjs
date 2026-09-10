@@ -2,11 +2,11 @@ import puppeteer from 'puppeteer-core';
 import path from 'path';
 
 const CHROME_PATH = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-const TARGET_URL = 'https://parroto-dictation.vercel.app/';
+const TARGET_URL = 'http://localhost:5173/';
 const ARTIFACTS_DIR = '/Users/soncris/.gemini/antigravity-ide/brain/b1578ad7-86fb-4e60-ba33-ac062561f357';
 
 async function testOAuth2StandardFlow() {
-  console.log('🚀 Starting OAuth 2.0 Standard Flow E2E Test...');
+  console.log('🚀 Starting OAuth 2.0 Standard Flow E2E Test on ' + TARGET_URL);
   const browser = await puppeteer.launch({
     executablePath: CHROME_PATH,
     headless: 'new',
@@ -26,12 +26,12 @@ async function testOAuth2StandardFlow() {
   });
 
   // 1. Navigate to local app
-  await page.goto(TARGET_URL, { waitUntil: 'networkidle2' });
+  await page.goto(TARGET_URL, { waitUntil: 'domcontentloaded', timeout: 15000 });
   await page.evaluate(() => {
     localStorage.clear();
     sessionStorage.clear();
   });
-  await page.reload({ waitUntil: 'networkidle2' });
+  await page.reload({ waitUntil: 'domcontentloaded', timeout: 15000 });
 
   // 2. Open Auth Modal
   await page.waitForSelector('button', { timeout: 5000 });
