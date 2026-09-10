@@ -109,6 +109,12 @@ export default function AuthModal({ isOpen, onClose }) {
   // =====================================================================
   // BƯỚC 2: FRONTEND CHUYỂN HƯỚNG TRÌNH DUYỆT SANG GOOGLE / FACEBOOK OAUTH
   // =====================================================================
+  const generateCsrfToken = (provider) => {
+    const randomState = Math.random().toString(36).substring(2) + Date.now().toString(36);
+    sessionStorage.setItem("oauth_csrf_state", randomState);
+    return JSON.stringify({ provider, csrf: randomState });
+  };
+
   const handleGoogleOAuth2Redirect = () => {
     setError("");
     const clientId = oauthConfig.google_client_id || import.meta.env.VITE_GOOGLE_CLIENT_ID;
@@ -128,7 +134,7 @@ export default function AuthModal({ isOpen, onClose }) {
     url.searchParams.set("scope", "openid email profile");
     url.searchParams.set("access_type", "offline");
     url.searchParams.set("prompt", "select_account");
-    url.searchParams.set("state", JSON.stringify({ provider: "google" }));
+    url.searchParams.set("state", generateCsrfToken("google"));
 
     window.location.href = url.toString();
   };
@@ -150,7 +156,7 @@ export default function AuthModal({ isOpen, onClose }) {
     url.searchParams.set("redirect_uri", redirectUri);
     url.searchParams.set("response_type", "code");
     url.searchParams.set("scope", "email,public_profile");
-    url.searchParams.set("state", JSON.stringify({ provider: "facebook" }));
+    url.searchParams.set("state", generateCsrfToken("facebook"));
 
     window.location.href = url.toString();
   };
@@ -432,7 +438,7 @@ export default function AuthModal({ isOpen, onClose }) {
                     <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
                     <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
                   </svg>
-                  <span>Đăng nhập với Google (OAuth 2.0)</span>
+                  <span>Tiếp tục với Google</span>
                   {oauthConfig.is_google_configured && (
                     <span style={{ fontSize: "10px", backgroundColor: "#dcfce7", color: "#166534", padding: "1px 6px", borderRadius: "10px", fontWeight: 800 }}>
                       Live
@@ -467,7 +473,7 @@ export default function AuthModal({ isOpen, onClose }) {
                   <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
                   </svg>
-                  <span>Đăng nhập với Facebook (OAuth 2.0)</span>
+                  <span>Tiếp tục với Facebook</span>
                   {oauthConfig.is_facebook_configured && (
                     <span style={{ fontSize: "10px", backgroundColor: "#dcfce7", color: "#166534", padding: "1px 6px", borderRadius: "10px", fontWeight: 800 }}>
                       Live

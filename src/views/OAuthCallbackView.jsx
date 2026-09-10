@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useApp } from "../context/AppContext";
 import { CheckCircle2, AlertCircle, RefreshCw, ArrowRight, ShieldCheck } from "lucide-react";
 import confetti from "canvas-confetti";
@@ -8,8 +8,12 @@ export default function OAuthCallbackView() {
   const [status, setStatus] = useState("processing"); // 'processing' | 'success' | 'error'
   const [errorMessage, setErrorMessage] = useState("");
   const [providerName, setProviderName] = useState("Google / Facebook");
+  const hasExecuted = useRef(false);
 
   useEffect(() => {
+    if (hasExecuted.current) return;
+    hasExecuted.current = true;
+
     const processOAuthCode = async () => {
       try {
         const urlParams = new URLSearchParams(window.location.search);
@@ -30,13 +34,18 @@ export default function OAuthCallbackView() {
           return;
         }
 
-        // Detect provider from state
+        // Detect provider and verify CSRF state if provided
         let provider = "google";
         if (stateRaw) {
           try {
             if (stateRaw.startsWith("{")) {
               const parsed = JSON.parse(stateRaw);
               if (parsed.provider) provider = parsed.provider;
+
+              const storedCsrf = sessionStorage.getItem("oauth_csrf_state");
+              if (storedCsrf && parsed.csrf && storedCsrf !== parsed.csrf) {
+                console.warn("Cảnh báo: CSRF state không trùng khớp");
+              }
             } else if (stateRaw.toLowerCase().includes("facebook")) {
               provider = "facebook";
             }
