@@ -1,4 +1,6 @@
 import { YoutubeTranscript } from "youtube-transcript";
+import { getSubtitles } from "youtube-caption-extractor";
+import { lessonsCatalog } from "../src/data/lessonsCatalog.js";
 
 /**
  * Extract 11-character YouTube video ID from various URL formats
@@ -133,21 +135,49 @@ export async function createLessonFromYouTube(urlOrId, customTranscriptText = nu
 
   let sentences = [];
 
-  // 2. Fetch subtitles if no manual transcript provided
-  if (!customTranscriptText || !customTranscriptText.trim()) {
-    try {
-      // Try English first
-      let rawFragments = await YoutubeTranscript.fetchTranscript(videoId, { lang: "en" }).catch(() => null);
-      if (!rawFragments || rawFragments.length === 0) {
-        // Fallback to default
-        rawFragments = await YoutubeTranscript.fetchTranscript(videoId).catch(() => null);
-      }
+  // 2. First check if this video is already in our curated catalog of 414+ lessons
+  const catalogMatch = lessonsCatalog.find((l) => l.videoId === videoId);
+  if (catalogMatch && catalogMatch.sentence_ids && catalogMatch.sentence_ids.length > 0) {
+    sentences = catalogMatch.sentence_ids;
+    if (!meta.title || meta.title === "Bài học từ YouTube") {
+      meta.title = catalogMatch.title;
+    }
+  }
 
-      if (rawFragments && rawFragments.length > 0) {
-        sentences = groupCaptionFragments(rawFragments);
+  // 3. Fetch subtitles if no manual transcript provided and not found in catalog
+  if (sentences.length === 0 && (!customTranscriptText || !customTranscriptText.trim())) {
+    let rawFragments = [];
+
+    // Attempt 1: youtube-caption-extractor
+    try {
+      const subs = await getSubtitles({ videoID: videoId, lang: "en" });
+      if (subs && subs.length > 0) {
+        rawFragments = subs.map((s) => ({
+          text: s.text,
+          offset: Math.round(parseFloat(s.start || 0) * 1000),
+          duration: Math.round(parseFloat(s.dur || 3) * 1000)
+        }));
       }
-    } catch (e) {
-      console.warn("[YouTube] Error fetching automated transcript:", e.message);
+    } catch (e1) {
+      console.warn("[YouTube] youtube-caption-extractor warning:", e1.message);
+    }
+
+    // Attempt 2: YoutubeTranscript English
+    if (!rawFragments || rawFragments.length === 0) {
+      try {
+        rawFragments = await YoutubeTranscript.fetchTranscript(videoId, { lang: "en" }).catch(() => null);
+      } catch (e2) {}
+    }
+
+    // Attempt 3: YoutubeTranscript default
+    if (!rawFragments || rawFragments.length === 0) {
+      try {
+        rawFragments = await YoutubeTranscript.fetchTranscript(videoId).catch(() => null);
+      } catch (e3) {}
+    }
+
+    if (rawFragments && rawFragments.length > 0) {
+      sentences = groupCaptionFragments(rawFragments);
     }
   }
 
