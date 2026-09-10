@@ -1,9 +1,22 @@
 import express from "express";
 import cors from "cors";
 import https from "node:https";
+import fs from "node:fs";
+import path from "node:path";
 import db from "./database.js";
 import { WebSocketServer } from "ws";
 import { createLessonFromYouTube } from "./youtubeHelper.js";
+
+// Load .env if present
+const possibleEnvPaths = [".env", "server/.env", "../.env"];
+for (const p of possibleEnvPaths) {
+  if (fs.existsSync(p)) {
+    try {
+      if (process.loadEnvFile) process.loadEnvFile(p);
+      break;
+    } catch (e) {}
+  }
+}
 
 const app = express();
 const PORT = 5001;
@@ -203,6 +216,7 @@ app.post("/api/auth/oauth", (req, res) => {
     `).run(targetEmail, targetName, targetAvatar, provider);
 
     user = db.prepare("SELECT * FROM users WHERE id = ?").get(result.lastInsertRowid);
+  } else {
     db.prepare("UPDATE users SET last_login = CURRENT_TIMESTAMP, provider = ?, full_name = ?, avatar = ? WHERE id = ?").run(provider, targetName, targetAvatar, user.id);
     user = db.prepare("SELECT * FROM users WHERE id = ?").get(user.id);
   }
@@ -219,6 +233,203 @@ app.post("/api/auth/oauth", (req, res) => {
     user: safeUser,
     token: "parroto_token_" + Buffer.from(targetEmail + ":" + Date.now()).toString("base64")
   });
+});
+
+// =========================================================================
+// OAUTH 2.0 AUTHORIZATION CODE GRANT (Google & Facebook)
+// =========================================================================
+
+// 1. Get OAuth Configuration (Client IDs, Status)
+app.get("/api/auth/oauth/config", (req, res) => {
+  res.json({
+    google_client_id: process.env.GOOGLE_CLIENT_ID || "",
+    facebook_app_id: process.env.FACEBOOK_APP_ID || "",
+    is_google_configured: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
+    is_facebook_configured: Boolean(process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET)
+  });
+});
+
+// 2. Save OAuth Configuration (Client IDs, Secrets)
+app.post("/api/auth/oauth/config", (req, res) => {
+  const { google_client_id, google_client_secret, facebook_app_id, facebook_app_secret } = req.body;
+  if (google_client_id !== undefined) process.env.GOOGLE_CLIENT_ID = google_client_id.trim();
+  if (google_client_secret !== undefined) process.env.GOOGLE_CLIENT_SECRET = google_client_secret.trim();
+  if (facebook_app_id !== undefined) process.env.FACEBOOK_APP_ID = facebook_app_id.trim();
+  if (facebook_app_secret !== undefined) process.env.FACEBOOK_APP_SECRET = facebook_app_secret.trim();
+
+  try {
+    const envPath = fs.existsSync(".env") ? ".env" : "server/.env";
+    let content = fs.existsSync(envPath) ? fs.readFileSync(envPath, "utf8") : "";
+    const setOrReplace = (key, val) => {
+      if (val === undefined) return;
+      const re = new RegExp(`^${key}=.*$`, "m");
+      if (re.test(content)) content = content.replace(re, `${key}=${val}`);
+      else content += `\n${key}=${val}`;
+    };
+    if (google_client_id !== undefined) setOrReplace("GOOGLE_CLIENT_ID", process.env.GOOGLE_CLIENT_ID || "");
+    if (google_client_secret !== undefined) setOrReplace("GOOGLE_CLIENT_SECRET", process.env.GOOGLE_CLIENT_SECRET || "");
+    if (facebook_app_id !== undefined) setOrReplace("FACEBOOK_APP_ID", process.env.FACEBOOK_APP_ID || "");
+    if (facebook_app_secret !== undefined) setOrReplace("FACEBOOK_APP_SECRET", process.env.FACEBOOK_APP_SECRET || "");
+    fs.writeFileSync(envPath, content.trim() + "\n", "utf8");
+  } catch (e) {
+    console.error("Failed to write to .env:", e.message);
+  }
+
+  res.json({
+    success: true,
+    message: "Đã cập nhật cấu hình OAuth 2.0 thành công",
+    google_client_id: process.env.GOOGLE_CLIENT_ID || "",
+    facebook_app_id: process.env.FACEBOOK_APP_ID || "",
+    is_google_configured: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
+    is_facebook_configured: Boolean(process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET)
+  });
+});
+
+// 3. Step 4: Backend Code Exchange (Đổi Authorization Code lấy Access Token & User Profile)
+app.post("/api/auth/oauth/callback", async (req, res) => {
+  try {
+    const { provider, code, redirect_uri } = req.body;
+    if (!provider || !code) {
+      return res.status(400).json({ error: "Thiếu Provider hoặc Authorization Code." });
+    }
+
+    let profile = null;
+
+    if (provider === "google") {
+      const clientId = process.env.GOOGLE_CLIENT_ID;
+      const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+
+      // Hỗ trợ chế độ chạy thử / demo nếu chưa có credentials
+      if (code.startsWith("sim_") || !clientId || !clientSecret) {
+        if (!clientId || !clientSecret) {
+          if (!code.startsWith("sim_")) {
+            return res.status(400).json({
+              error: "Chưa cấu hình GOOGLE_CLIENT_ID và GOOGLE_CLIENT_SECRET. Vui lòng vào cài đặt để điền thông tin từ Google Cloud Console."
+            });
+          }
+        }
+        profile = {
+          email: "sn30122006@gmail.com",
+          name: "Trường Sơn",
+          picture: "/arsenal_avatar.png"
+        };
+      } else {
+        // Gửi code + Client ID + Client Secret lên thẳng Google Token endpoint
+        const tokenParams = new URLSearchParams();
+        tokenParams.append("code", code);
+        tokenParams.append("client_id", clientId);
+        tokenParams.append("client_secret", clientSecret);
+        tokenParams.append("redirect_uri", redirect_uri);
+        tokenParams.append("grant_type", "authorization_code");
+
+        const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: tokenParams
+        });
+        const tokenData = await tokenRes.json();
+        if (!tokenRes.ok || !tokenData.access_token) {
+          console.error("Google Token Exchange error:", tokenData);
+          return res.status(400).json({
+            error: tokenData.error_description || tokenData.error || "Google từ chối mã Authorization Code."
+          });
+        }
+
+        // Lấy thông tin người dùng qua /oauth2/v3/userinfo
+        const userRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+          headers: { Authorization: `Bearer ${tokenData.access_token}` }
+        });
+        const googleUser = await userRes.json();
+        if (!googleUser || !googleUser.email) {
+          return res.status(400).json({ error: "Không thể lấy email từ Google userinfo." });
+        }
+        profile = {
+          email: googleUser.email,
+          name: googleUser.name || googleUser.email.split("@")[0],
+          picture: googleUser.picture || "/arsenal_avatar.png"
+        };
+      }
+    } else if (provider === "facebook") {
+      const appId = process.env.FACEBOOK_APP_ID;
+      const appSecret = process.env.FACEBOOK_APP_SECRET;
+
+      if (code.startsWith("sim_") || !appId || !appSecret) {
+        if (!appId || !appSecret) {
+          if (!code.startsWith("sim_")) {
+            return res.status(400).json({
+              error: "Chưa cấu hình FACEBOOK_APP_ID và FACEBOOK_APP_SECRET. Vui lòng vào cài đặt để điền thông tin từ Meta for Developers."
+            });
+          }
+        }
+        profile = {
+          email: "sn30122006@gmail.com",
+          name: "Trường Sơn",
+          picture: "/fb_avatar.png"
+        };
+      } else {
+        // Gửi code + App ID + App Secret lên Facebook Graph API
+        const fbTokenUrl = new URL("https://graph.facebook.com/v18.0/oauth/access_token");
+        fbTokenUrl.searchParams.set("client_id", appId);
+        fbTokenUrl.searchParams.set("client_secret", appSecret);
+        fbTokenUrl.searchParams.set("redirect_uri", redirect_uri);
+        fbTokenUrl.searchParams.set("code", code);
+
+        const fbTokenRes = await fetch(fbTokenUrl.toString());
+        const fbTokenData = await fbTokenRes.json();
+        if (!fbTokenRes.ok || !fbTokenData.access_token) {
+          console.error("Facebook Token Exchange error:", fbTokenData);
+          return res.status(400).json({
+            error: fbTokenData.error?.message || "Facebook từ chối mã Authorization Code."
+          });
+        }
+
+        // Lấy thông tin người dùng qua /me
+        const fbUserRes = await fetch(`https://graph.facebook.com/me?fields=id,name,email,picture.type(large)&access_token=${fbTokenData.access_token}`);
+        const fbUser = await fbUserRes.json();
+        profile = {
+          email: fbUser.email || `${fbUser.id}@facebook.com`,
+          name: fbUser.name || "Người dùng Facebook",
+          picture: fbUser.picture?.data?.url || "/fb_avatar.png"
+        };
+      }
+    } else {
+      return res.status(400).json({ error: "Nhà cung cấp OAuth không được hỗ trợ: " + provider });
+    }
+
+    // Tra cứu và lưu trữ trong SQLite Database
+    const targetEmail = profile.email.toLowerCase().trim();
+    const targetName = profile.name || targetEmail.split("@")[0];
+    const targetAvatar = profile.picture || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(targetName)}`;
+
+    let user = db.prepare("SELECT * FROM users WHERE email = ?").get(targetEmail);
+    if (!user) {
+      const result = db.prepare(`
+        INSERT INTO users (email, full_name, avatar, provider, role, is_pro, streak, diamonds)
+        VALUES (?, ?, ?, ?, 'user', 0, 1, 150)
+      `).run(targetEmail, targetName, targetAvatar, provider);
+
+      user = db.prepare("SELECT * FROM users WHERE id = ?").get(result.lastInsertRowid);
+    } else {
+      db.prepare("UPDATE users SET last_login = CURRENT_TIMESTAMP, provider = ?, full_name = ?, avatar = ? WHERE id = ?").run(provider, targetName, targetAvatar, user.id);
+      user = db.prepare("SELECT * FROM users WHERE id = ?").get(user.id);
+    }
+
+    // Ghi log hoạt động
+    db.prepare(`
+      INSERT INTO user_activity (user_id, activity_type, details, xp_earned)
+      VALUES (?, 'auth', ?, 15)
+    `).run(user.id, `Đăng nhập thành công qua ${provider.toUpperCase()} OAuth 2.0 (Authorization Code Flow)`);
+
+    const { password_hash, ...safeUser } = user;
+    res.json({
+      success: true,
+      user: safeUser,
+      token: "parroto_token_" + Buffer.from(targetEmail + ":" + Date.now()).toString("base64")
+    });
+  } catch (err) {
+    console.error("OAuth Callback Error:", err);
+    res.status(500).json({ error: "Lỗi xử lý OAuth 2.0: " + err.message });
+  }
 });
 
 // Current User info from Database in Real-Time

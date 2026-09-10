@@ -1,7 +1,7 @@
 import puppeteer from 'puppeteer-core';
 
 const CHROME_PATH = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-const TARGET_URL = 'http://localhost:5173/';
+const TARGET_URL = 'https://parroto-dictation.vercel.app/';
 const ARTIFACTS_DIR = '/Users/soncris/.gemini/antigravity-ide/brain/b1578ad7-86fb-4e60-ba33-ac062561f357';
 
 async function testOAuthFlow() {

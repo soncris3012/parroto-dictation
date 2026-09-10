@@ -23,6 +23,7 @@ import AdminDashboardView from "./views/AdminDashboardView";
 import LeaderboardView from "./views/LeaderboardView";
 import ShopView from "./views/ShopView";
 import GamesView from "./views/GamesView";
+import OAuthCallbackView from "./views/OAuthCallbackView";
 import { lessonsCatalog } from "./data/lessonsCatalog";
 import { Headphones, FileText, ArrowLeft } from "lucide-react";
 import { AppProvider, useApp } from "./context/AppContext";
@@ -218,8 +219,13 @@ function MainContent() {
         toggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
       />
 
-      {/* Guard: nếu chưa đăng nhập thì show màn hình landing đẹp */}
-      {!currentUser && (
+      {/* Guard: nếu là callback OAuth 2.0 thì xử lý Authorization Code */}
+      {(window.location.pathname.startsWith("/auth/callback") || window.location.search.includes("code=")) && (
+        <OAuthCallbackView />
+      )}
+
+      {/* Guard: nếu chưa đăng nhập và không phải callback thì show màn hình landing đẹp */}
+      {!currentUser && !(window.location.pathname.startsWith("/auth/callback") || window.location.search.includes("code=")) && (
         <div style={{
           flex: 1, display: "flex", flexDirection: "column", alignItems: "center",
           justifyContent: "center", backgroundColor: "var(--background)", gap: "24px",
@@ -454,8 +460,8 @@ function MainContent() {
               </div>
             </div>
           )}
-        </main>
-      </div>}
+      </main>
+    </div>}
 
       {/* Modals chỉ render khi đã đăng nhập */}
       {currentUser && <>
