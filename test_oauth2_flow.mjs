@@ -2,7 +2,7 @@ import puppeteer from 'puppeteer-core';
 import path from 'path';
 
 const CHROME_PATH = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-const TARGET_URL = 'http://localhost:5173/';
+const TARGET_URL = 'https://parroto-dictation.vercel.app/';
 const ARTIFACTS_DIR = '/Users/soncris/.gemini/antigravity-ide/brain/b1578ad7-86fb-4e60-ba33-ac062561f357';
 
 async function testOAuth2StandardFlow() {
@@ -41,6 +41,14 @@ async function testOAuth2StandardFlow() {
     if (b) b.click();
   });
   await new Promise(r => setTimeout(r, 800));
+
+  // Verify Shopee / Lazada style OAuth buttons
+  const modalText = await page.evaluate(() => document.body.innerText);
+  if (!modalText.includes('Tiếp tục với Google') || !modalText.includes('Tiếp tục với Facebook')) {
+    throw new Error('Nút "Tiếp tục với Google" hoặc "Tiếp tục với Facebook" không tìm thấy!');
+  }
+  await page.screenshot({ path: path.join(ARTIFACTS_DIR, 'oauth2_shopee_style_buttons.png') });
+  console.log('📸 Screenshot: oauth2_shopee_style_buttons.png');
 
   // 3. Open OAuth 2.0 Configuration Tab
   console.log('Opening OAuth 2.0 Configuration tab...');
