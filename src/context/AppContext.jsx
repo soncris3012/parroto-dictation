@@ -271,8 +271,36 @@ export function AppProvider({ children }) {
     setSavedNotes((prev) => prev.filter((n) => n.id !== id));
   };
 
-  // Custom YouTube imported lessons
-  const [customLessons, setCustomLessons] = useState([]);
+  // Custom YouTube imported lessons with persistent storage
+  const [customLessons, setCustomLessons] = useState(() => {
+    try {
+      const saved = localStorage.getItem("sorata_custom_lessons");
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+
+  const addCustomLesson = (newLesson) => {
+    setCustomLessons((prev) => {
+      const filtered = prev.filter((l) => l._id !== newLesson._id && l.videoId !== newLesson.videoId);
+      const updated = [newLesson, ...filtered];
+      try {
+        localStorage.setItem("sorata_custom_lessons", JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+  };
+
+  const removeCustomLesson = (idOrSlug) => {
+    setCustomLessons((prev) => {
+      const updated = prev.filter((l) => l._id !== idOrSlug && l.slug !== idOrSlug);
+      try {
+        localStorage.setItem("sorata_custom_lessons", JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+  };
 
   return (
     <AppContext.Provider
@@ -306,7 +334,9 @@ export function AppProvider({ children }) {
         addNote,
         removeNote,
         customLessons,
-        setCustomLessons
+        setCustomLessons,
+        addCustomLesson,
+        removeCustomLesson
       }}
     >
       {children}

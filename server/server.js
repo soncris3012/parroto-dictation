@@ -3,6 +3,7 @@ import cors from "cors";
 import https from "node:https";
 import db from "./database.js";
 import { WebSocketServer } from "ws";
+import { createLessonFromYouTube } from "./youtubeHelper.js";
 
 const app = express();
 const PORT = 5001;
@@ -663,6 +664,26 @@ app.post("/api/admin/users/create", (req, res) => {
 app.get("/api/admin/reports", (req, res) => {
   const reports = db.prepare("SELECT * FROM system_reports ORDER BY created_at DESC").all();
   res.json(reports);
+});
+
+// ==========================================
+// 7. YOUTUBE LESSON & TRANSCRIPT EXTRACTOR
+// ==========================================
+app.post("/api/youtube/extract", async (req, res) => {
+  try {
+    const { url, transcriptText } = req.body || {};
+    if (!url) {
+      return res.status(400).json({ success: false, error: "Vui lòng cung cấp link video YouTube hợp lệ!" });
+    }
+    const result = await createLessonFromYouTube(url, transcriptText);
+    res.json(result);
+  } catch (error) {
+    console.error("[API] YouTube extract error:", error);
+    res.status(500).json({
+      success: false,
+      error: error.message || "Không thể trích xuất bài học từ YouTube."
+    });
+  }
 });
 
 // ==========================================

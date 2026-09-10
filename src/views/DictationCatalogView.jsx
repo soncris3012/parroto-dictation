@@ -1,11 +1,11 @@
 import React, { useState, useMemo } from "react";
-import { Headphones, Plus, Play, Sparkles, Filter, Search, Crown, Lock, Flame } from "lucide-react";
+import { Headphones, Plus, Play, Sparkles, Filter, Search, Crown, Lock, Flame, Trash2 } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import { categoriesData } from "../data/categoriesData";
 import { lessonsCatalog } from "../data/lessonsCatalog";
 
 export default function DictationCatalogView({ onOpenLesson, onOpenYouTubeModal }) {
-  const { isPro, setIsPremiumModalOpen, customLessons } = useApp();
+  const { isPro, setIsPremiumModalOpen, customLessons, removeCustomLesson } = useApp();
   const [filterLevel, setFilterLevel] = useState("all");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
@@ -285,21 +285,51 @@ export default function DictationCatalogView({ onOpenLesson, onOpenYouTubeModal 
               <div style={{ padding: "14px", flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
                 <div>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
-                    <span
-                      style={{
-                        fontSize: "11px",
-                        fontWeight: 800,
-                        backgroundColor: "var(--secondary)",
-                        color: "var(--primary)",
-                        padding: "2px 8px",
-                        borderRadius: "6px"
-                      }}
-                    >
-                      {item.difficulty || "B1"}
-                    </span>
-                    <span style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>
-                      {item.total_view_count ? `${Number(item.total_view_count).toLocaleString()} lượt xem` : "Bài mới"}
-                    </span>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <span
+                        style={{
+                          fontSize: "11px",
+                          fontWeight: 800,
+                          backgroundColor: item.isCustom ? "rgba(220, 38, 38, 0.15)" : "var(--secondary)",
+                          color: item.isCustom ? "#ef4444" : "var(--primary)",
+                          border: item.isCustom ? "1px solid rgba(220, 38, 38, 0.3)" : "none",
+                          padding: "2px 8px",
+                          borderRadius: "6px"
+                        }}
+                      >
+                        {item.isCustom ? "YOUTUBE (TỰ TẠO)" : (item.difficulty || "B1")}
+                      </span>
+                      {item.sentence_ids && (
+                        <span style={{ fontSize: "11px", color: "#94a3b8" }}>
+                          {item.sentence_ids.length} câu
+                        </span>
+                      )}
+                    </div>
+                    {item.isCustom ? (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (removeCustomLesson) removeCustomLesson(item._id);
+                        }}
+                        title="Xóa bài học tự tạo này"
+                        style={{
+                          background: "transparent",
+                          border: "none",
+                          color: "#ef4444",
+                          cursor: "pointer",
+                          padding: "2px 4px",
+                          borderRadius: "4px"
+                        }}
+                        className="hover:bg-red-500/10"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    ) : (
+                      <span style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>
+                        {item.total_view_count ? `${Number(item.total_view_count).toLocaleString()} lượt xem` : "Bài mới"}
+                      </span>
+                    )}
                   </div>
 
                   <h4

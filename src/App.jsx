@@ -42,7 +42,8 @@ function MainContent() {
     currentUser,
     addNote,
     customLessons,
-    setCustomLessons
+    setCustomLessons,
+    addCustomLesson
   } = useApp();
 
   const [isYtModalOpen, setIsYtModalOpen] = useState(false);
@@ -92,10 +93,13 @@ function MainContent() {
         _id: lessonItem._id || "lesson-" + Date.now(),
         slug: lessonItem.slug || "custom-lesson",
         title: lessonItem.title || "Bài học luyện nghe",
+        author: lessonItem.author || "",
+        thumbnail: lessonItem.thumbnail || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
         duration: lessonItem.duration || "02:00",
         difficulty: lessonItem.difficulty || "B1",
         videoId: videoId,
-        topic_id: { name: lessonItem.topic || "Luyện nghe chọn lọc" },
+        url: lessonItem.url || `https://www.youtube.com/watch?v=${videoId}`,
+        topic_id: lessonItem.topic_id || { name: lessonItem.author ? `YouTube: ${lessonItem.author}` : (lessonItem.topic || "YouTube Tùy Chọn") },
         sentence_ids: lessonItem.sentence_ids && lessonItem.sentence_ids.length > 0
           ? lessonItem.sentence_ids
           : [
@@ -199,7 +203,8 @@ function MainContent() {
   };
 
   const handleImportYouTubeSuccess = (newLesson) => {
-    setCustomLessons((prev) => [newLesson, ...prev]);
+    if (addCustomLesson) addCustomLesson(newLesson);
+    else setCustomLessons((prev) => [newLesson, ...prev]);
     handleOpenLesson(newLesson);
   };
 
