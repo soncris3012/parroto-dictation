@@ -88,6 +88,10 @@ class SoundManager {
     osc.stop(now + 0.2);
   }
 
+  playWrong() {
+    this.playIncorrect();
+  }
+
   playLessonSuccess() {
     if (this.muted) return;
     this.init();
@@ -119,4 +123,14 @@ class SoundManager {
   }
 }
 
-export const sounds = new SoundManager();
+const soundManagerInstance = new SoundManager();
+
+// Defensive Proxy: Never crash the app if a sound method doesn't exist
+export const sounds = new Proxy(soundManagerInstance, {
+  get(target, prop) {
+    if (prop in target) {
+      return typeof target[prop] === "function" ? target[prop].bind(target) : target[prop];
+    }
+    return () => {}; // Safe no-op fallback
+  }
+});
