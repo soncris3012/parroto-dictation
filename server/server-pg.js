@@ -207,7 +207,8 @@ app.post("/api/auth/oauth", async (req, res) => {
 
     user = (await pool.query("SELECT * FROM users WHERE id = ?", [result.rows[0].id])).rows[0];
   } else {
-    await pool.query("UPDATE users SET last_login = CURRENT_TIMESTAMP, provider = ? WHERE id = ?", [provider, user.id]);
+    await pool.query("UPDATE users SET last_login = CURRENT_TIMESTAMP, provider = ?, full_name = ?, avatar = ? WHERE id = ?", [provider, targetName, targetAvatar, user.id]);
+    user = (await pool.query("SELECT * FROM users WHERE id = ?", [user.id])).rows[0];
   }
 
   // Log activity

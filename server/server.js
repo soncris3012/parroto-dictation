@@ -203,8 +203,8 @@ app.post("/api/auth/oauth", (req, res) => {
     `).run(targetEmail, targetName, targetAvatar, provider);
 
     user = db.prepare("SELECT * FROM users WHERE id = ?").get(result.lastInsertRowid);
-  } else {
-    db.prepare("UPDATE users SET last_login = CURRENT_TIMESTAMP, provider = ? WHERE id = ?").run(provider, user.id);
+    db.prepare("UPDATE users SET last_login = CURRENT_TIMESTAMP, provider = ?, full_name = ?, avatar = ? WHERE id = ?").run(provider, targetName, targetAvatar, user.id);
+    user = db.prepare("SELECT * FROM users WHERE id = ?").get(user.id);
   }
 
   // Log activity
